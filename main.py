@@ -1,256 +1,179 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from datetime import datetime
-from collections import Counter
 import pickle
-import re
+import whois
+import datetime
+import Levenshtein
 
-app = FastAPI(title="SentinelAI Cyber Defense System")
+app = FastAPI(title="SentinelAI Cyber Defense")
+
 
 # -----------------------------
 # Load Models
 # -----------------------------
 
-sms_model = pickle.load(open("scam_model.pkl", "rb"))
-vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
+url_model = pickle.load(open("url_model.pkl","rb"))
+vectorizer = pickle.load(open("url_vectorizer.pkl","rb"))
 
-url_model = pickle.load(open("url_model.pkl", "rb"))
-
-# -----------------------------
-# In-Memory Storage
-# -----------------------------
-
-scan_logs = []
-message_logs = []
-
-leaderboard = {
-    "Rahul": 920,
-    "Aditi": 880,
-    "Jiya": 840
-}
-
-# -----------------------------
-# Request Models
-# -----------------------------
 
 class URLRequest(BaseModel):
     url: str
 
-class MessageRequest(BaseModel):
-    message: str
 
-class ReportScam(BaseModel):
-    message: str
-    location: str
+# -----------------------------
+# Known brands
+# -----------------------------
+
+brands = [
+    "google","amazon","facebook","netflix",
+    "paypal","apple","microsoft","sbi","paytm","github"
+]
 
 
 # -----------------------------
-# Text Cleaning
+# ML Prediction
 # -----------------------------
 
-def clean_text(text):
+def ml_predict(url):
 
-    text = text.lower()
+    vec = vectorizer.transform([url])
 
-    text = re.sub(r"http\S+", "", text)
+    pred = url_model.predict(vec)[0]
 
-    text = re.sub(r"[^a-zA-Z\s]", "", text)
+    prob = url_model.predict_proba(vec).max()
 
-    return text
-
-
-# -----------------------------
-# SMS Prediction
-# -----------------------------
-
-def predict_message(message):
-
-    cleaned = clean_text(message)
-
-    vector = vectorizer.transform([cleaned])
-
-    prediction = sms_model.predict(vector)[0]
-
-    probability = sms_model.predict_proba(vector).max()
-
-    risk_score = int(probability * 100)
-
-    return prediction, probability, risk_score
+    return pred, prob
 
 
 # -----------------------------
-# URL Feature Extraction
+# Typosquatting detection
 # -----------------------------
 
-def extract_url_features(url):
+def typo_check(url):
 
-    return [
-        len(url),
-        url.count("."),
-        url.count("/"),
-        1 if "https" in url else 0,
-        1 if "login" in url else 0,
-        1 if "verify" in url else 0,
-        len(re.findall(r"[@\-_=]", url))
+    domain = url.split("//")[-1].split("/")[0]
+
+    name = domain.split(".")[0]
+
+    for brand in brands:
+
+        distance = Levenshtein.distance(name, brand)
+
+        if distance <= 2 and name != brand:
+            return True
+
+    return False
+
+
+# -----------------------------
+# Domain age check
+# -----------------------------
+
+def domain_age(url):
+
+    try:
+
+        domain = url.split("//")[-1].split("/")[0]
+
+        w = whois.whois(domain)
+
+        creation = w.creation_date
+
+        if isinstance(creation, list):
+            creation = creation[0]
+
+        age = (datetime.datetime.now() - creation).days
+
+        return age
+
+    except:
+        return None
+
+
+# -----------------------------
+# Detection Engine
+# -----------------------------
+
+def detect_url(url):
+
+    risk = 0
+
+    pred, prob = ml_predict(url)
+
+    url_lower = url.lower()
+
+    # ML signal
+    if pred == 1:
+        risk += 40
+
+
+    # phishing keywords
+    keywords = [
+        "login","verify","secure","account",
+        "bank","confirm","update","signin","password"
     ]
 
+    keyword_hits = sum(1 for k in keywords if k in url_lower)
+
+    risk += keyword_hits * 20
+
+
+    # typosquatting
+    if typo_check(url):
+        risk += 40
+
+
+    # suspicious TLD
+    suspicious_tlds = [
+        ".xyz",".top",".tk",".ml",".ga",".cf"
+    ]
+
+    if any(url_lower.endswith(tld) for tld in suspicious_tlds):
+        risk += 25
+
+
+    # domain age
+    age = domain_age(url)
+
+    if age is not None:
+
+        if age < 30:
+            risk += 40
+        elif age < 180:
+            risk += 20
+
+
+    # suspicious URL structure
+    if url.count("-") >= 2:
+        risk += 15
+
+    if len(url) > 60:
+        risk += 10
+
+
+    risk = min(risk,100)
+
+    status = "Phishing" if risk >= 60 else "Safe"
+
+
+    return {
+        "url": url,
+        "risk_score": risk,
+        "status": status,
+        "confidence": round(prob,2)
+    }
+
 
 # -----------------------------
-# URL Prediction
-# -----------------------------
-
-def predict_url(url):
-
-    features = extract_url_features(url)
-
-    prediction = url_model.predict([features])[0]
-
-    probability = url_model.predict_proba([features]).max()
-
-    risk_score = int(probability * 100)
-
-    return prediction, probability, risk_score
-
-
-# -----------------------------
-# Routes
-# -----------------------------
-
-@app.get("/")
-def home():
-    return {"message": "SentinelAI Backend Running"}
-
-
-# -----------------------------
-# Scan URL
+# API Routes
 # -----------------------------
 
 @app.post("/scan-url")
 def scan_url(data: URLRequest):
 
-    prediction, probability, risk_score = predict_url(data.url)
-
-    result = {
-        "url": data.url,
-        "risk_score": risk_score,
-        "type": "Phishing" if prediction == 1 else "Safe",
-        "confidence": round(probability, 2),
-        "timestamp": str(datetime.now())
-    }
-
-    scan_logs.append(result)
-
-    return result
+    return detect_url(data.url)
 
 
-# -----------------------------
-# Scan Message
-# -----------------------------
-
-@app.post("/scan-message")
-def scan_message(data: MessageRequest):
-
-    prediction, probability, risk_score = predict_message(data.message)
-
-    result = {
-        "message": data.message,
-        "risk_score": risk_score,
-        "type": "Scam" if prediction == "spam" else "Safe",
-        "confidence": round(probability, 2),
-        "timestamp": str(datetime.now())
-    }
-
-    message_logs.append(result)
-
-    return result
-
-
-# -----------------------------
-# Threat Feed
-# -----------------------------
-
-@app.get("/threat-feed")
-def threat_feed():
-
-    alerts = []
-
-    for scan in scan_logs[-5:]:
-
-        if scan["risk_score"] > 50:
-            alerts.append(f"⚠ Phishing detected: {scan['url']}")
-
-    return {"alerts": alerts}
-
-
-# -----------------------------
-# Leaderboard
-# -----------------------------
-
-@app.get("/leaderboard")
-def get_leaderboard():
-
-    sorted_board = sorted(
-        leaderboard.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-    result = []
-
-    rank = 1
-
-    for name, score in sorted_board:
-
-        result.append({
-            "rank": rank,
-            "name": name,
-            "score": score
-        })
-
-        rank += 1
-
-    return result
-
-
-# -----------------------------
-# Report Scam
-# -----------------------------
-
-@app.post("/report-scam")
-def report_scam(data: ReportScam):
-
-    message_logs.append({
-        "message": data.message,
-        "location": data.location,
-        "time": str(datetime.now())
-    })
-
-    return {"status": "Report submitted"}
-
-
-# -----------------------------
-# Scam Trends
-# -----------------------------
-
-@app.get("/scam-trends")
-def scam_trends():
-
-    words = []
-
-    for log in message_logs:
-
-        msg = log.get("message", "")
-
-        words.extend(msg.lower().split())
-
-    if not words:
-        return {"trend": "No data yet"}
-
-    most_common = Counter(words).most_common(1)[0]
-
-    return {
-        "top_scam_pattern": most_common[0],
-        "frequency": most_common[1],
-        "trend": "Increasing",
-        "confidence": round(min(0.5 + most_common[1]*0.05, 0.95), 2)
-    }
+@app.get("/")
+def home():
+    return {"message":"SentinelAI backend running"}

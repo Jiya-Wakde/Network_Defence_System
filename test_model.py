@@ -1,281 +1,128 @@
 import pickle
-import math
+import whois
+import datetime
 import Levenshtein
 
-from difflib import SequenceMatcher
-from urllib.parse import urlparse
+print("Loading models...")
 
-
-# -------------------------------------------------
-# Load Models
-# -------------------------------------------------
-
-sms_model = pickle.load(open("scam_model.pkl", "rb"))
-vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
-url_model = pickle.load(open("url_model.pkl", "rb"))
+url_model = pickle.load(open("url_model.pkl","rb"))
+vectorizer = pickle.load(open("url_vectorizer.pkl","rb"))
 
 print("Models loaded successfully.")
 
 
-# -------------------------------------------------
-# Known brands
-# -------------------------------------------------
-
 brands = [
-    "google",
-    "amazon",
-    "facebook",
-    "netflix",
-    "paypal",
-    "apple",
-    "microsoft",
-    "sbi",
-    "paytm",
-    "github"
+    "google","amazon","facebook","netflix",
+    "paypal","apple","microsoft","sbi","paytm","github"
 ]
 
 
-# -------------------------------------------------
-# Extract domain
-# -------------------------------------------------
+def ml_predict(url):
 
-def get_domain(url):
+    vec = vectorizer.transform([url])
 
-    parsed = urlparse(url)
+    pred = url_model.predict(vec)[0]
 
-    domain = parsed.netloc
+    prob = url_model.predict_proba(vec).max()
 
-    if domain == "":
-        domain = url
-
-    return domain.lower()
+    return pred, prob
 
 
-# -------------------------------------------------
-# Normalize characters (g00gle → google)
-# -------------------------------------------------
+def typo_check(url):
 
-def normalize_domain(domain):
+    domain = url.split("//")[-1].split("/")[0]
 
-    replacements = {
-        "0": "o",
-        "1": "l",
-        "3": "e",
-        "4": "a",
-        "5": "s",
-        "7": "t"
-    }
-
-    for k, v in replacements.items():
-        domain = domain.replace(k, v)
-
-    return domain
-
-
-# -------------------------------------------------
-# Brand similarity
-# -------------------------------------------------
-
-def brand_similarity(url):
-
-    domain = get_domain(url)
-
-    domain = normalize_domain(domain)
-
-    domain = domain.split(".")[0]
-
-    highest = 0
+    name = domain.split(".")[0]
 
     for brand in brands:
 
-        ratio = SequenceMatcher(None, brand, domain).ratio()
+        distance = Levenshtein.distance(name, brand)
 
-        if ratio > highest:
-            highest = ratio
-
-    return highest
-
-
-# -------------------------------------------------
-# Typosquatting detection
-# -------------------------------------------------
-
-def brand_distance(url):
-
-    domain = get_domain(url)
-
-    domain = normalize_domain(domain)
-
-    domain = domain.split(".")[0]
-
-    for brand in brands:
-
-        dist = Levenshtein.distance(domain, brand)
-
-        if dist != 0 and dist <= 2:
+        if distance <= 2 and name != brand:
             return True
 
     return False
 
 
-# -------------------------------------------------
-# Entropy calculation
-# -------------------------------------------------
+def domain_age(url):
 
-def entropy(text):
+    try:
 
-    if len(text) == 0:
-        return 0
+        domain = url.split("//")[-1].split("/")[0]
 
-    prob = [float(text.count(c)) / len(text) for c in dict.fromkeys(list(text))]
+        w = whois.whois(domain)
 
-    entropy_value = -sum([p * math.log2(p) for p in prob])
+        creation = w.creation_date
 
-    return entropy_value
+        if isinstance(creation, list):
+            creation = creation[0]
 
+        age = (datetime.datetime.now() - creation).days
 
-# -------------------------------------------------
-# Feature extraction
-# -------------------------------------------------
+        return age
 
-def extract_features(url):
-
-    url = url.lower()
-
-    features = []
-
-    features.append(len(url))
-    features.append(url.count("."))
-    features.append(url.count("-"))
-    features.append(url.count("_"))
-    features.append(url.count("/"))
-
-    features.append(1 if url.startswith("https") else 0)
-
-    keywords = [
-        "login",
-        "verify",
-        "account",
-        "secure",
-        "update",
-        "bank",
-        "confirm",
-        "password"
-    ]
-
-    for k in keywords:
-        features.append(1 if k in url else 0)
-
-    bad_tlds = [
-        ".xyz",
-        ".top",
-        ".ru",
-        ".tk",
-        ".ml",
-        ".ga"
-    ]
-
-    for tld in bad_tlds:
-        features.append(1 if url.endswith(tld) else 0)
-
-    features.append(sum(c.isdigit() for c in url))
-
-    features.append(brand_similarity(url))
-
-    features.append(entropy(url))
-
-    return features
+    except:
+        return None
 
 
-# -------------------------------------------------
-# SMS Prediction
-# -------------------------------------------------
+def detect_url(url):
 
-def predict_message(message):
+    risk = 0
 
-    vector = vectorizer.transform([message])
-
-    prediction = sms_model.predict(vector)[0]
-
-    probability = sms_model.predict_proba(vector).max()
-
-    return prediction, probability
-
-
-# -------------------------------------------------
-# URL Prediction
-# -------------------------------------------------
-
-def predict_url(url):
-
-    features = extract_features(url)
-
-    prediction = url_model.predict([features])[0]
-    probability = url_model.predict_proba([features]).max()
+    pred, prob = ml_predict(url)
 
     url_lower = url.lower()
 
-    suspicious_keywords = [
+    keywords = [
         "login","verify","secure","account",
-        "bank","confirm","update"
+        "bank","confirm","update","signin","password"
     ]
 
-    bad_tlds = [".xyz",".top",".ru",".tk",".ml",".ga"]
+    keyword_hits = sum(1 for k in keywords if k in url_lower)
 
-    # 1️⃣ Typosquatting detection
-    if brand_distance(url):
-        return 1, 0.95
+    risk += keyword_hits * 20
 
-    # 2️⃣ Brand similarity attack
-    if brand_similarity(url) > 0.9 and brand_similarity(url) < 1:
-        return 1, 0.90
+    if pred == 1:
+        risk += 40
 
-    # 3️⃣ Suspicious keyword + bad TLD together
-    if any(k in url_lower for k in suspicious_keywords) and any(url_lower.endswith(t) for t in bad_tlds):
-        return 1, 0.85
+    if typo_check(url):
+        risk += 40
 
-    # Otherwise trust ML model
-    return prediction, probability
+    suspicious_tlds = [
+        ".xyz",".top",".tk",".ml",".ga",".cf"
+    ]
 
+    if any(url_lower.endswith(tld) for tld in suspicious_tlds):
+        risk += 25
 
-# -------------------------------------------------
-# Terminal Interface
-# -------------------------------------------------
+    age = domain_age(url)
+
+    if age is not None:
+
+        if age < 30:
+            risk += 40
+        elif age < 180:
+            risk += 20
+
+    if url.count("-") >= 2:
+        risk += 15
+
+    risk = min(risk,100)
+
+    label = "PHISHING" if risk >= 60 else "SAFE"
+
+    return label, risk, prob
+
 
 while True:
 
-    print("\nChoose test type:")
-    print("1 → Test Message")
-    print("2 → Test URL")
-    print("3 → Exit")
+    url = input("\nEnter URL (or exit): ")
 
-    choice = input("Enter choice: ").strip()
-
-    if choice == "1":
-
-        msg = input("\nEnter message: ")
-
-        pred, prob = predict_message(msg)
-
-        print("\nPrediction:", pred)
-        print("Confidence:", round(prob, 2))
-
-
-    elif choice == "2":
-
-        url = input("\nEnter URL: ").strip().split()[0]
-
-        pred, prob = predict_url(url)
-
-        print("\nPrediction:", "Phishing" if pred == 1 else "Safe")
-        print("Confidence:", round(prob, 2))
-
-
-    elif choice == "3":
-
-        print("Exiting test.")
+    if url == "exit":
         break
 
-    else:
+    label, risk, prob = detect_url(url)
 
-        print("Invalid choice.")
+    print("\nResult:", label)
+    print("Risk Score:", risk)
+    print("ML Confidence:", round(prob,2))
