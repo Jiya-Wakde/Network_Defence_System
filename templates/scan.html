@@ -14,16 +14,13 @@ height:80vh;
 }
 
 .scan-box{
-
 background:#141f4d;
 width:650px;
 padding:50px;
 border-radius:16px;
 text-align:center;
-
 box-shadow:0 0 40px rgba(0,0,0,.7);
 transition:.3s;
-
 }
 
 .scan-box:hover{
@@ -32,75 +29,51 @@ box-shadow:0 0 50px rgba(90,120,255,.6);
 }
 
 .scan-box h1{
-
 color:#7aa3ff;
 margin-bottom:25px;
 font-size:32px;
-
 }
 
 /* TEXTAREA */
 
 textarea{
-
 width:100%;
 height:160px;
-
 padding:15px;
-
 border-radius:10px;
 border:none;
-
 resize:none;
-
 font-size:15px;
 outline:none;
-
 background:#0f1640;
 color:white;
-
 box-shadow:inset 0 0 10px rgba(0,0,0,.6);
-
 }
 
 /* BUTTON */
 
 button{
-
 margin-top:25px;
-
 padding:14px 30px;
-
 font-size:16px;
-
 background:linear-gradient(90deg,#356cff,#5c8dff);
-
 border:none;
 border-radius:8px;
-
 color:white;
-
 cursor:pointer;
-
 transition:.3s;
-
 }
 
 button:hover{
-
 transform:scale(1.05);
-
 background:linear-gradient(90deg,#2347c5,#356cff);
-
 }
 
 /* RESULT */
 
 .result{
-
 margin-top:25px;
 font-size:18px;
-
 }
 
 .safe{
@@ -147,9 +120,41 @@ color:#ff4c4c;
 
 <p class="danger">⚠ {{ result.status }} DETECTED</p>
 
+<script>
+window.onload = function(){
+
+let msg = new SpeechSynthesisUtterance(
+"Warning. This message appears to be {{ result.status }}. Risk score {{ result.risk_score }} percent."
+);
+
+msg.rate = 1;
+msg.pitch = 1;
+msg.volume = 1;
+
+speechSynthesis.speak(msg);
+
+}
+</script>
+
 {% else %}
 
 <p class="safe">✅ SAFE</p>
+
+<script>
+window.onload = function(){
+
+let msg = new SpeechSynthesisUtterance(
+"This message appears to be safe."
+);
+
+msg.rate = 1;
+msg.pitch = 1;
+msg.volume = 0.8;
+
+speechSynthesis.speak(msg);
+
+}
+</script>
 
 {% endif %}
 

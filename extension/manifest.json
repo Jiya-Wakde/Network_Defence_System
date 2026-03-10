@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "SentinelAI Phishing Detector",
+  "name": "Web-Rakshak",
   "version": "1.0",
   "description": "Detect phishing websites using AI",
 
@@ -21,7 +21,13 @@
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_start"
+      "run_at": "document_idle"
     }
-  ]
+  ],
+  "web_accessible_resources": [
+  {
+    "resources": ["sound/alert.mp3"],
+    "matches": ["<all_urls>"]
+  }
+]
 }

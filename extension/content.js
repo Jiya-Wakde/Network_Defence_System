@@ -1,33 +1,35 @@
 function checkURL(){
 
-let url = window.location.href
+let url = window.location.href;
 
 chrome.runtime.sendMessage(
 {action:"scan", url:url},
 
 function(response){
 
-console.log("SentinelAI result:", response)
+console.log("Web-Rakshak result:", response);
 
-if(!response) return
+if(!response) return;
 
 if(response.status === "Phishing"){
 
-showWarning(response)
+chrome.runtime.sendMessage({action:"playAlert"});
+
+showWarning(response);
 
 }
 
-})
+});
 
 }
 
-checkURL()
+checkURL();
 
 
 
 function showWarning(data){
 
-let overlay = document.createElement("div")
+let overlay = document.createElement("div");
 
 overlay.innerHTML = `
 <div style="
@@ -91,20 +93,16 @@ Continue Anyway
 
 </div>
 </div>
-`
+`;
 
-document.documentElement.appendChild(overlay)
+document.documentElement.appendChild(overlay);
 
 document.getElementById("leaveSite").onclick = () => {
-
-window.location.href = "https://google.com"
-
-}
+window.location.href = "https://google.com";
+};
 
 document.getElementById("continueSite").onclick = () => {
-
-overlay.remove()
-
-}
+overlay.remove();
+};
 
 }
