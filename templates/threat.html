@@ -9,25 +9,23 @@
 display:flex;
 justify-content:center;
 align-items:center;
+gap:30px;
 
-height:80vh;
+flex-wrap:wrap;
+
+margin-top:40px;
 
 }
 
 .card{
 
 background:rgba(18,26,77,.85);
-
 padding:35px;
-
 border-radius:12px;
-
-width:380px;
-
+width:350px;
 text-align:center;
 
 box-shadow:0 0 25px rgba(0,0,0,.6);
-
 transition:.3s;
 
 }
@@ -35,7 +33,6 @@ transition:.3s;
 .card:hover{
 
 transform:scale(1.05);
-
 box-shadow:0 0 35px rgba(90,120,255,.6);
 
 }
@@ -43,9 +40,23 @@ box-shadow:0 0 35px rgba(90,120,255,.6);
 .card h3{
 
 color:#7aa3ff;
-
 margin-bottom:20px;
 
+}
+
+.percent{
+
+font-size:26px;
+font-weight:bold;
+
+}
+
+.safe{
+color:#4cff8f;
+}
+
+.danger{
+color:#ff4c4c;
 }
 
 </style>
@@ -56,20 +67,42 @@ margin-bottom:20px;
 </h1>
 
 
+{% if stats %}
+
 <div class="threat-container">
 
 <div class="card">
 
 <h3>Most Dangerous Link</h3>
 
-<p><b>http://fake-bank-login.com</b></p>
+<p><b>{{ stats.most_url }}</b></p>
 
-<p>⚠ Risk Score: <b>92%</b></p>
+<p class="danger">⚠ Risk Score: {{ stats.risk_score }}%</p>
 
-<p>📊 Reported: <b>134 times</b></p>
+</div>
+
+
+<div class="card">
+
+<h3>Browsing Safety Score</h3>
+
+<p class="percent safe">{{ stats.safe_percent }}% Safe</p>
+
+<p class="percent danger">{{ stats.risky_percent }}% Risky</p>
+
+<p>Total Scanned: {{ stats.total }}</p>
 
 </div>
 
 </div>
+
+{% else %}
+
+<p style="text-align:center;margin-top:40px;">
+No browsing data yet.
+</p>
+
+{% endif %}
+
 
 {% endblock %}

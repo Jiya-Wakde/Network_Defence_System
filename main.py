@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 
+import json
+import os
 import pickle
 import whois
 import datetime
@@ -13,61 +15,44 @@ app = Flask(__name__)
 CORS(app)
 
 
-# --------------------------------------------------
-# Load ML Model
-# --------------------------------------------------
+# -----------------------------
+# Load ML Models
+# -----------------------------
 
-print("Loading URL detection model...")
-
-url_model = pickle.load(open("url_model.pkl", "rb"))
-url_vectorizer = pickle.load(open("url_vectorizer.pkl", "rb"))
-
-print("Model loaded successfully")
+url_model = pickle.load(open("url_model.pkl","rb"))
+vectorizer = pickle.load(open("url_vectorizer.pkl","rb"))
 
 
-# --------------------------------------------------
-# Known Brands (typosquatting detection)
-# --------------------------------------------------
+# -----------------------------
+# Manual Phishing Websites
+# -----------------------------
 
-brands = [
-"google","amazon","facebook","netflix",
-"paypal","apple","microsoft","github",
-"sbi","paytm","allegro","alibaba"
-]
-
-
-# --------------------------------------------------
-# Manual phishing domains (guaranteed detection)
-# --------------------------------------------------
-
-blacklist_domains = [
+manual_phish_domains = {
 
 "bitpaxos.com",
 "brightonboard.com",
 "universalcb.org",
 "moneyswift.munya.co.zw",
-"allegrolokalnie.pl-aukcja189560.icu"
+"allegrolokalnie.pl-aukcja189560.icu",
+"fynterasprime.com",
+"fintechelitepro.sbs",
+"expresscargopro.sbs"
+}
 
+
+# -----------------------------
+# Known Brands
+# -----------------------------
+
+brands = [
+"google","amazon","facebook","netflix",
+"paypal","apple","microsoft","sbi","paytm","github"
 ]
 
 
-# --------------------------------------------------
-# Normalize URL
-# --------------------------------------------------
-
-def normalize_url(url):
-
-    url = url.strip().lower()
-
-    if not url.startswith("http"):
-        url = "http://" + url
-
-    return url
-
-
-# --------------------------------------------------
-# Extract domain
-# --------------------------------------------------
+# -----------------------------
+# Extract Domain
+# -----------------------------
 
 def get_domain(url):
 
@@ -82,13 +67,29 @@ def get_domain(url):
         return ""
 
 
-# --------------------------------------------------
-# ML prediction
-# --------------------------------------------------
+# -----------------------------
+# Manual Phishing Detection
+# -----------------------------
+
+def is_manual_phish(url):
+
+    domain = get_domain(url)
+
+    for bad in manual_phish_domains:
+
+        if bad in domain:
+            return True
+
+    return False
+
+
+# -----------------------------
+# ML Prediction
+# -----------------------------
 
 def ml_predict(url):
 
-    vec = url_vectorizer.transform([url])
+    vec = vectorizer.transform([url])
 
     pred = url_model.predict(vec)[0]
 
@@ -97,25 +98,9 @@ def ml_predict(url):
     return pred, prob
 
 
-# --------------------------------------------------
-# Check blacklist
-# --------------------------------------------------
-
-def is_blacklisted(url):
-
-    domain = get_domain(url)
-
-    for bad in blacklist_domains:
-
-        if bad in domain:
-            return True
-
-    return False
-
-
-# --------------------------------------------------
+# -----------------------------
 # Typosquatting detection
-# --------------------------------------------------
+# -----------------------------
 
 def typo_check(url):
 
@@ -130,15 +115,12 @@ def typo_check(url):
         if distance <= 2 and name != brand:
             return True
 
-        if brand in name and brand != name:
-            return True
-
     return False
 
 
-# --------------------------------------------------
-# Domain age detection
-# --------------------------------------------------
+# -----------------------------
+# Domain age check
+# -----------------------------
 
 def domain_age(url):
 
@@ -158,41 +140,33 @@ def domain_age(url):
         return age
 
     except:
-
         return None
 
 
-# --------------------------------------------------
-# URL Detection Engine
-# --------------------------------------------------
+# -----------------------------
+# Detection Engine
+# -----------------------------
 
 def detect_url(url):
-
-    url = normalize_url(url)
 
     risk = 0
 
     url_lower = url.lower()
 
 
-    # --------------------------------
-    # Blacklist detection
-    # --------------------------------
+    # -----------------------------
+    # Manual phishing list
+    # -----------------------------
 
-    if is_blacklisted(url):
+    if is_manual_phish(url):
 
         return {
-        "type":"URL",
-        "input":url,
-        "risk_score":100,
-        "status":"Phishing",
-        "confidence":1.0
+            "url": url,
+            "risk_score": 100,
+            "status": "Phishing",
+            "confidence": 1.0
         }
 
-
-    # --------------------------------
-    # ML detection
-    # --------------------------------
 
     pred, prob = ml_predict(url)
 
@@ -200,48 +174,27 @@ def detect_url(url):
         risk += 40
 
 
-    # --------------------------------
-    # phishing keywords
-    # --------------------------------
-
     keywords = [
-
-    "login","verify","secure","account",
-    "bank","confirm","update","signin",
-    "password","wallet","payment"
-
+        "login","verify","secure","account",
+        "bank","confirm","update","signin","password"
     ]
 
     keyword_hits = sum(1 for k in keywords if k in url_lower)
 
-    risk += keyword_hits * 15
+    risk += keyword_hits * 20
 
-
-    # --------------------------------
-    # typosquatting
-    # --------------------------------
 
     if typo_check(url):
         risk += 40
 
 
-    # --------------------------------
-    # suspicious TLD
-    # --------------------------------
-
     suspicious_tlds = [
-
-    ".xyz",".top",".tk",".ml",".ga",".cf",".zip"
-
+        ".xyz",".top",".tk",".ml",".ga",".cf"
     ]
 
     if any(url_lower.endswith(tld) for tld in suspicious_tlds):
         risk += 25
 
-
-    # --------------------------------
-    # domain age
-    # --------------------------------
 
     age = domain_age(url)
 
@@ -254,40 +207,46 @@ def detect_url(url):
             risk += 20
 
 
-    # --------------------------------
-    # URL structure analysis
-    # --------------------------------
-
     if url.count("-") >= 2:
         risk += 15
+
 
     if len(url) > 60:
         risk += 10
 
 
-    risk = min(risk,100)
+    risk = min(risk,92)
+
+    log_scan(url, risk)
 
     status = "Phishing" if risk >= 60 else "Safe"
 
 
     return {
-
-    "type":"URL",
-    "input":url,
-    "risk_score":risk,
-    "status":status,
-    "confidence":round(prob,2)
-
+        "url": url,
+        "risk_score": risk,
+        "status": status,
+        "confidence": round(prob,2)
     }
 
 
-# --------------------------------------------------
+# -----------------------------
+# URL detection helper
+# -----------------------------
+
+def is_url(text):
+
+    pattern = re.compile(r"https?://|www\.")
+
+    return bool(pattern.search(text))
+
+
+# -----------------------------
 # Web Routes
-# --------------------------------------------------
+# -----------------------------
 
 @app.route("/")
 def index():
-
     return render_template("index.html")
 
 
@@ -298,30 +257,44 @@ def scan():
 
     if request.method == "POST":
 
-        url = request.form.get("url")
+        text = request.form.get("url")
 
-        if url:
+        if text:
 
-            result = detect_url(url)
+            if is_url(text):
+
+                result = detect_url(text)
 
     return render_template("scan.html", result=result)
 
 
-@app.route("/threats")
-def threats():
-
-    return render_template("threat.html")
-
 
 @app.route("/extension")
 def extension():
-
     return render_template("extension.html")
 
+def log_scan(url, risk):
 
-# --------------------------------------------------
+    log = {
+        "url": url,
+        "risk_score": risk
+    }
+
+    if not os.path.exists("scan_logs.json"):
+
+        with open("scan_logs.json","w") as f:
+            json.dump([],f)
+
+    with open("scan_logs.json","r") as f:
+        data = json.load(f)
+
+    data.append(log)
+
+    with open("scan_logs.json","w") as f:
+        json.dump(data,f)
+# -----------------------------
 # API for Chrome Extension
-# --------------------------------------------------
+# -----------------------------
 
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
@@ -335,10 +308,47 @@ def api_scan():
     return jsonify(result)
 
 
-# --------------------------------------------------
+# -----------------------------
+def get_threat_stats():
+
+    if not os.path.exists("scan_logs.json"):
+        return None
+
+    with open("scan_logs.json") as f:
+        data = json.load(f)
+
+    if not data:
+        return None
+
+    total = len(data)
+
+    risky = sum(1 for x in data if x["risk_score"] >= 60)
+
+    safe = total - risky
+
+    safe_percent = round((safe/total)*100)
+
+    risky_percent = round((risky/total)*100)
+
+    most_dangerous = max(data, key=lambda x: x["risk_score"])
+
+    return {
+
+        "most_url": most_dangerous["url"],
+        "risk_score": most_dangerous["risk_score"],
+        "safe_percent": safe_percent,
+        "risky_percent": risky_percent,
+        "total": total
+
+    }
+
+@app.route("/threats")
+def threats():
+
+    stats = get_threat_stats()
+
+    return render_template("threat.html", stats=stats)
+
 
 if __name__ == "__main__":
-
-    print("SentinelAI server running...")
-
     app.run(debug=True)

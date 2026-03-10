@@ -2,31 +2,200 @@
 
 {% block content %}
 
-<h1 style="text-align:center;color:#7aa3ff;">
-AI Powered Browser Protection
-</h1>
+<style>
 
-<p style="text-align:center;">
+.extension-hero{
+text-align:center;
+padding:60px 20px;
+}
+
+.extension-hero h1{
+color:#7aa3ff;
+font-size:38px;
+margin-bottom:10px;
+}
+
+.extension-hero p{
+color:#b6c4ff;
+font-size:18px;
+}
+
+.install-btn{
+margin-top:25px;
+padding:14px 32px;
+font-size:16px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+background:linear-gradient(90deg,#3a6bff,#7aa3ff);
+color:white;
+transition:.3s;
+}
+
+.install-btn:hover{
+transform:scale(1.05);
+}
+
+.section-title{
+text-align:center;
+margin-top:60px;
+margin-bottom:25px;
+color:#7aa3ff;
+font-size:26px;
+}
+
+.browser-grid{
+display:flex;
+justify-content:center;
+gap:40px;
+flex-wrap:wrap;
+}
+
+.browser-card{
+
+background:#141f4d;
+width:200px;
+height:120px;
+
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+
+border-radius:12px;
+
+box-shadow:0 0 20px rgba(0,0,0,.5);
+
+transition:.3s;
+
+}
+
+.browser-card:hover{
+transform:scale(1.05);
+}
+
+.browser-card span{
+margin-top:10px;
+font-size:18px;
+}
+
+.steps-grid{
+
+display:flex;
+justify-content:center;
+gap:30px;
+flex-wrap:wrap;
+margin-top:30px;
+
+}
+
+.step-card{
+
+background:#141f4d;
+width:280px;
+padding:25px;
+
+border-radius:12px;
+text-align:center;
+
+box-shadow:0 0 20px rgba(0,0,0,.6);
+
+}
+
+.step-card h3{
+color:#7aa3ff;
+}
+
+.video-box{
+
+margin-top:40px;
+display:flex;
+justify-content:center;
+
+}
+
+.video-box iframe{
+
+border-radius:12px;
+
+}
+
+</style>
+
+
+<div class="extension-hero">
+
+<h1>AI Powered Browser Protection</h1>
+
+<p>
 Install our extension to automatically detect phishing websites and scam links while browsing.
 </p>
 
-<div style="text-align:center;margin-top:30px;">
-
 <a href="/static/extension.zip">
 
-<button style="
-padding:14px 30px;
-background:linear-gradient(90deg,#3a6bff,#7aa3ff);
-border:none;
-border-radius:8px;
-color:white;
-font-size:16px;
-cursor:pointer;
-">
+<button class="install-btn">
 ⬇ Install Extension
 </button>
 
 </a>
+
+</div>
+
+
+
+<h2 class="section-title">Supported Browsers</h2>
+
+<div class="browser-grid">
+
+<div class="browser-card">
+🌐
+<span>Chrome</span>
+</div>
+
+<div class="browser-card">
+🧭
+<span>Edge</span>
+</div>
+
+<div class="browser-card">
+🦊
+<span>Firefox</span>
+</div>
+
+</div>
+
+
+
+<h2 class="section-title">How Protection Works</h2>
+
+<div class="steps-grid">
+
+<div class="step-card">
+<h3>1️⃣ Scan</h3>
+<p>Extension scans every website URL using AI detection.</p>
+</div>
+
+<div class="step-card">
+<h3>2️⃣ Detect</h3>
+<p>Our model checks phishing patterns and scam signals.</p>
+</div>
+
+<div class="step-card">
+<h3>3️⃣ Protect</h3>
+<p>Users get instant warning before opening dangerous sites.</p>
+</div>
+
+</div>
+
+
+
+<div class="video-box">
+
+<iframe width="640" height="360"
+src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+frameborder="0"
+allowfullscreen>
+</iframe>
 
 </div>
 
