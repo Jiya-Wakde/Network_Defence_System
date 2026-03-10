@@ -1,24 +1,25 @@
 import pickle
-import re
 import math
+import Levenshtein
+
 from difflib import SequenceMatcher
 from urllib.parse import urlparse
 
-# -----------------------------
+
+# -------------------------------------------------
 # Load Models
-# -----------------------------
+# -------------------------------------------------
 
 sms_model = pickle.load(open("scam_model.pkl", "rb"))
 vectorizer = pickle.load(open("vectorizer.pkl", "rb"))
-
 url_model = pickle.load(open("url_model.pkl", "rb"))
 
 print("Models loaded successfully.")
 
 
-# -----------------------------
+# -------------------------------------------------
 # Known brands
-# -----------------------------
+# -------------------------------------------------
 
 brands = [
     "google",
@@ -34,9 +35,9 @@ brands = [
 ]
 
 
-# -----------------------------
+# -------------------------------------------------
 # Extract domain
-# -----------------------------
+# -------------------------------------------------
 
 def get_domain(url):
 
@@ -50,13 +51,38 @@ def get_domain(url):
     return domain.lower()
 
 
-# -----------------------------
+# -------------------------------------------------
+# Normalize characters (g00gle → google)
+# -------------------------------------------------
+
+def normalize_domain(domain):
+
+    replacements = {
+        "0": "o",
+        "1": "l",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t"
+    }
+
+    for k, v in replacements.items():
+        domain = domain.replace(k, v)
+
+    return domain
+
+
+# -------------------------------------------------
 # Brand similarity
-# -----------------------------
+# -------------------------------------------------
 
 def brand_similarity(url):
 
     domain = get_domain(url)
+
+    domain = normalize_domain(domain)
+
+    domain = domain.split(".")[0]
 
     highest = 0
 
@@ -70,11 +96,36 @@ def brand_similarity(url):
     return highest
 
 
-# -----------------------------
+# -------------------------------------------------
+# Typosquatting detection
+# -------------------------------------------------
+
+def brand_distance(url):
+
+    domain = get_domain(url)
+
+    domain = normalize_domain(domain)
+
+    domain = domain.split(".")[0]
+
+    for brand in brands:
+
+        dist = Levenshtein.distance(domain, brand)
+
+        if dist != 0 and dist <= 2:
+            return True
+
+    return False
+
+
+# -------------------------------------------------
 # Entropy calculation
-# -----------------------------
+# -------------------------------------------------
 
 def entropy(text):
+
+    if len(text) == 0:
+        return 0
 
     prob = [float(text.count(c)) / len(text) for c in dict.fromkeys(list(text))]
 
@@ -83,9 +134,9 @@ def entropy(text):
     return entropy_value
 
 
-# -----------------------------
-# URL Feature Extraction
-# -----------------------------
+# -------------------------------------------------
+# Feature extraction
+# -------------------------------------------------
 
 def extract_features(url):
 
@@ -99,7 +150,7 @@ def extract_features(url):
     features.append(url.count("_"))
     features.append(url.count("/"))
 
-    features.append(1 if "https" in url else 0)
+    features.append(1 if url.startswith("https") else 0)
 
     keywords = [
         "login",
@@ -136,9 +187,9 @@ def extract_features(url):
     return features
 
 
-# -----------------------------
+# -------------------------------------------------
 # SMS Prediction
-# -----------------------------
+# -------------------------------------------------
 
 def predict_message(message):
 
@@ -151,24 +202,45 @@ def predict_message(message):
     return prediction, probability
 
 
-# -----------------------------
+# -------------------------------------------------
 # URL Prediction
-# -----------------------------
+# -------------------------------------------------
 
 def predict_url(url):
 
     features = extract_features(url)
 
     prediction = url_model.predict([features])[0]
-
     probability = url_model.predict_proba([features]).max()
 
+    url_lower = url.lower()
+
+    suspicious_keywords = [
+        "login","verify","secure","account",
+        "bank","confirm","update"
+    ]
+
+    bad_tlds = [".xyz",".top",".ru",".tk",".ml",".ga"]
+
+    # 1️⃣ Typosquatting detection
+    if brand_distance(url):
+        return 1, 0.95
+
+    # 2️⃣ Brand similarity attack
+    if brand_similarity(url) > 0.9 and brand_similarity(url) < 1:
+        return 1, 0.90
+
+    # 3️⃣ Suspicious keyword + bad TLD together
+    if any(k in url_lower for k in suspicious_keywords) and any(url_lower.endswith(t) for t in bad_tlds):
+        return 1, 0.85
+
+    # Otherwise trust ML model
     return prediction, probability
 
 
-# -----------------------------
-# Terminal Testing Loop
-# -----------------------------
+# -------------------------------------------------
+# Terminal Interface
+# -------------------------------------------------
 
 while True:
 
@@ -188,19 +260,20 @@ while True:
         print("\nPrediction:", pred)
         print("Confidence:", round(prob, 2))
 
+
     elif choice == "2":
 
-        url = input("\nEnter URL: ").strip()
+        url = input("\nEnter URL: ").strip().split()[0]
 
         pred, prob = predict_url(url)
 
         print("\nPrediction:", "Phishing" if pred == 1 else "Safe")
         print("Confidence:", round(prob, 2))
 
+
     elif choice == "3":
 
         print("Exiting test.")
-
         break
 
     else:

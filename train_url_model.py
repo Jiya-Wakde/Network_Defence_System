@@ -33,14 +33,18 @@ brands = [
 
 def get_domain(url):
 
-    parsed = urlparse(url)
+    try:
+        parsed = urlparse(url)
 
-    domain = parsed.netloc
+        domain = parsed.netloc
 
-    if domain == "":
-        domain = url
+        if domain == "":
+            domain = url
 
-    return domain.lower()
+        return domain.lower()
+
+    except:
+        return url.lower()
 
 
 # -----------------------------------
@@ -69,6 +73,9 @@ def brand_similarity(url):
 
 def entropy(text):
 
+    if len(text) == 0:
+        return 0
+
     prob = [float(text.count(c)) / len(text) for c in dict.fromkeys(list(text))]
 
     entropy_value = -sum([p * math.log2(p) for p in prob])
@@ -82,23 +89,23 @@ def entropy(text):
 
 def extract_features(url):
 
-    url = url.lower()
+    url = str(url).lower()
 
     features = []
 
     # URL length
     features.append(len(url))
 
-    # structure
+    # structure counts
     features.append(url.count("."))
     features.append(url.count("-"))
     features.append(url.count("_"))
     features.append(url.count("/"))
 
     # https presence
-    features.append(1 if "https" in url else 0)
+    features.append(1 if url.startswith("https") else 0)
 
-    # suspicious keywords
+    # phishing keywords
     keywords = [
         "login",
         "verify",
@@ -126,13 +133,13 @@ def extract_features(url):
     for tld in bad_tlds:
         features.append(1 if url.endswith(tld) else 0)
 
-    # digit count
+    # number of digits
     features.append(sum(c.isdigit() for c in url))
 
     # brand similarity
     features.append(brand_similarity(url))
 
-    # entropy
+    # entropy of URL
     features.append(entropy(url))
 
     return features
@@ -142,14 +149,26 @@ def extract_features(url):
 # Load dataset
 # -----------------------------------
 
+print("\nLoading dataset...")
+
 data = pd.read_csv("url_spam_classification.csv")
 
-print("Dataset loaded successfully")
+# convert True/False → 1/0
+data["is_spam"] = data["is_spam"].astype(int)
 
-# features
+print("Dataset size:", len(data))
+print("\nClass distribution:")
+print(data["is_spam"].value_counts())
+
+
+# -----------------------------------
+# Generate features
+# -----------------------------------
+
+print("\nExtracting features...")
+
 X = data["url"].apply(extract_features).tolist()
 
-# labels
 y = data["is_spam"]
 
 
@@ -161,7 +180,8 @@ X_train, X_test, y_train, y_test = train_test_split(
     X,
     y,
     test_size=0.2,
-    random_state=42
+    random_state=42,
+    stratify=y
 )
 
 
@@ -169,22 +189,25 @@ X_train, X_test, y_train, y_test = train_test_split(
 # Train model
 # -----------------------------------
 
+print("\nTraining RandomForest model...")
+
 model = RandomForestClassifier(
     n_estimators=200,
     max_depth=20,
-    random_state=42
+    random_state=42,
+    n_jobs=-1
 )
 
 model.fit(X_train, y_train)
 
 
 # -----------------------------------
-# Evaluate
+# Evaluate model
 # -----------------------------------
 
 accuracy = model.score(X_test, y_test)
 
-print("\nURL Model Accuracy:", accuracy)
+print("\nURL Model Accuracy:", round(accuracy, 4))
 
 
 # -----------------------------------
@@ -193,4 +216,4 @@ print("\nURL Model Accuracy:", accuracy)
 
 pickle.dump(model, open("url_model.pkl", "wb"))
 
-print("URL model saved successfully")
+print("\nURL model saved successfully.")
