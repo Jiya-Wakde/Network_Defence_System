@@ -17,6 +17,10 @@ brands = [
 ]
 
 
+# -----------------------------
+# ML Prediction
+# -----------------------------
+
 def ml_predict(url):
 
     vec = vectorizer.transform([url])
@@ -27,6 +31,10 @@ def ml_predict(url):
 
     return pred, prob
 
+
+# -----------------------------
+# Typosquatting detection
+# -----------------------------
 
 def typo_check(url):
 
@@ -44,6 +52,10 @@ def typo_check(url):
     return False
 
 
+# -----------------------------
+# Domain age check
+# -----------------------------
+
 def domain_age(url):
 
     try:
@@ -54,7 +66,7 @@ def domain_age(url):
 
         creation = w.creation_date
 
-        if isinstance(creation, list):
+        if isinstance(creation,list):
             creation = creation[0]
 
         age = (datetime.datetime.now() - creation).days
@@ -62,67 +74,171 @@ def domain_age(url):
         return age
 
     except:
+
         return None
 
+
+# -----------------------------
+# Detection Engine
+# -----------------------------
 
 def detect_url(url):
 
     risk = 0
+    url_lower = url.lower()
+
+    # ---------------------------
+    # ML Prediction
+    # ---------------------------
 
     pred, prob = ml_predict(url)
 
-    url_lower = url.lower()
+    if pred == 1:
+        risk += 50
+
+
+    # ---------------------------
+    # Suspicious Keywords
+    # ---------------------------
 
     keywords = [
         "login","verify","secure","account",
-        "bank","confirm","update","signin","password"
+        "bank","confirm","update","signin",
+        "password","reset","wallet","payment",
+        "crypto","bonus","gift","free"
     ]
 
     keyword_hits = sum(1 for k in keywords if k in url_lower)
 
-    risk += keyword_hits * 20
+    risk += keyword_hits * 15
 
-    if pred == 1:
-        risk += 40
+
+    # ---------------------------
+    # Suspicious Login Pages
+    # ---------------------------
+
+    suspicious_paths = [
+        "login.php",
+        "verify.php",
+        "update.php",
+        "signin.php",
+        "account.php"
+    ]
+
+    if any(p in url_lower for p in suspicious_paths):
+        risk += 20
+
+
+    # ---------------------------
+    # Typosquatting Detection
+    # ---------------------------
 
     if typo_check(url):
         risk += 40
 
+
+    # ---------------------------
+    # Suspicious TLDs
+    # ---------------------------
+
     suspicious_tlds = [
-        ".xyz",".top",".tk",".ml",".ga",".cf"
+        ".xyz",".top",".tk",".ml",".ga",".cf",
+        ".gq",".work",".click",".zip",".link",".gg"
     ]
 
-    if any(url_lower.endswith(tld) for tld in suspicious_tlds):
+    if any(tld in url_lower for tld in suspicious_tlds):
         risk += 25
+
+
+    # ---------------------------
+    # URL Length Check
+    # ---------------------------
+
+    if len(url) > 75:
+        risk += 20
+
+
+    # ---------------------------
+    # Too Many Hyphens
+    # ---------------------------
+
+    if url.count("-") >= 2:
+        risk += 15
+
+
+    # ---------------------------
+    # Domain Age
+    # ---------------------------
 
     age = domain_age(url)
 
     if age is not None:
 
         if age < 30:
-            risk += 40
-        elif age < 180:
-            risk += 20
+            risk += 50
 
-    if url.count("-") >= 2:
-        risk += 15
+        elif age < 180:
+            risk += 25
+
+
+    # ---------------------------
+    # Mirror / piracy detection
+    # ---------------------------
+
+    suspicious_patterns = [
+        "mirror",
+        "torrent",
+        "download",
+        "crack"
+    ]
+
+    if any(p in url_lower for p in suspicious_patterns):
+        risk += 20
+
+
+    # ---------------------------
+    # Final Risk Score
+    # ---------------------------
 
     risk = min(risk,100)
 
-    label = "PHISHING" if risk >= 60 else "SAFE"
 
-    return label, risk, prob
+    if risk >= 60:
+        status = "PHISHING"
 
+    elif risk >= 30:
+        status = "SUSPICIOUS"
+
+    else:
+        status = "SAFE"
+
+
+    print("URL:", url)
+    print("Risk Score:", risk)
+
+
+    return {
+        "url": url,
+        "risk_score": risk,
+        "status": status,
+        "confidence": round(prob,2)
+    }
+
+
+# -----------------------------
+# Test Loop
+# -----------------------------
 
 while True:
 
-    url = input("\nEnter URL (or exit): ")
+    url = input("\nEnter URL (or type exit): ")
 
-    if url == "exit":
+    if url.lower() == "exit":
         break
 
-    label, risk, prob = detect_url(url)
 
-    print("\nResult:", label)
-    print("Risk Score:", risk)
-    print("ML Confidence:", round(prob,2))
+    result = detect_url(url)
+
+    print("\nResult:", result["status"])
+    print("Risk Score:", result["risk_score"])
+    print("ML Confidence:", result["confidence"])

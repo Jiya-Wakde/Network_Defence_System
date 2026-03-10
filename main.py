@@ -1,34 +1,23 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import pickle
 import whois
 import datetime
 import Levenshtein
 
-app = FastAPI(title="SentinelAI Cyber Defense")
-
-
+app = Flask(__name__)
+CORS(app)
 # -----------------------------
-# Load Models
+# Load ML Models
 # -----------------------------
 
 url_model = pickle.load(open("url_model.pkl","rb"))
 vectorizer = pickle.load(open("url_vectorizer.pkl","rb"))
 
-
-class URLRequest(BaseModel):
-    url: str
-
-
-# -----------------------------
-# Known brands
-# -----------------------------
-
 brands = [
     "google","amazon","facebook","netflix",
     "paypal","apple","microsoft","sbi","paytm","github"
 ]
-
 
 # -----------------------------
 # ML Prediction
@@ -102,12 +91,9 @@ def detect_url(url):
 
     url_lower = url.lower()
 
-    # ML signal
     if pred == 1:
         risk += 40
 
-
-    # phishing keywords
     keywords = [
         "login","verify","secure","account",
         "bank","confirm","update","signin","password"
@@ -117,13 +103,9 @@ def detect_url(url):
 
     risk += keyword_hits * 20
 
-
-    # typosquatting
     if typo_check(url):
         risk += 40
 
-
-    # suspicious TLD
     suspicious_tlds = [
         ".xyz",".top",".tk",".ml",".ga",".cf"
     ]
@@ -131,8 +113,6 @@ def detect_url(url):
     if any(url_lower.endswith(tld) for tld in suspicious_tlds):
         risk += 25
 
-
-    # domain age
     age = domain_age(url)
 
     if age is not None:
@@ -142,19 +122,15 @@ def detect_url(url):
         elif age < 180:
             risk += 20
 
-
-    # suspicious URL structure
     if url.count("-") >= 2:
         risk += 15
 
     if len(url) > 60:
         risk += 10
 
-
     risk = min(risk,100)
 
     status = "Phishing" if risk >= 60 else "Safe"
-
 
     return {
         "url": url,
@@ -165,15 +141,55 @@ def detect_url(url):
 
 
 # -----------------------------
-# API Routes
+# Web Routes
 # -----------------------------
 
-@app.post("/scan-url")
-def scan_url(data: URLRequest):
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-    return detect_url(data.url)
+
+@app.route("/scan", methods=["GET","POST"])
+def scan():
+
+    result = None
+
+    if request.method == "POST":
+
+        url = request.form["url"]
+
+        result = detect_url(url)
+
+    return render_template("scan.html", result=result)
 
 
-@app.get("/")
-def home():
-    return {"message":"SentinelAI backend running"}
+@app.route("/threats")
+def threats():
+    return render_template("threat.html")
+
+
+@app.route("/extension")
+def extension():
+    return render_template("extension.html")
+
+
+# -----------------------------
+# API for Chrome Extension
+# -----------------------------
+
+@app.route("/api/scan", methods=["POST"])
+def api_scan():
+
+    data = request.get_json()
+
+    url = data.get("url")
+
+    result = detect_url(url)
+
+    return jsonify(result)
+
+
+# -----------------------------
+
+if __name__ == "__main__":
+    app.run(debug=True)

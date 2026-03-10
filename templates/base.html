@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>AI Scam Shield</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Segoe UI;
+background:radial-gradient(circle at top,#1a245f,#060b2d);
+color:white;
+}
+
+.container{
+display:flex;
+height:100vh;
+}
+
+.sidebar{
+width:220px;
+background:#0c1136;
+padding:25px;
+}
+
+.logo{
+font-size:20px;
+color:#7aa3ff;
+margin-bottom:30px;
+}
+
+.menu a{
+text-decoration:none;
+color:white;
+}
+
+.menu div{
+padding:12px;
+margin-bottom:12px;
+background:#151c4d;
+border-radius:8px;
+}
+
+.menu div:hover{
+background:#2d3cff;
+}
+
+.main{
+flex:1;
+padding:40px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="sidebar">
+
+<div class="logo">⚡ AI Scam Shield</div>
+
+<div class="menu">
+
+<a href="/"><div>Dashboard</div></a>
+<a href="/scan"><div>Scan Message</div></a>
+<a href="/threats"><div>Threat Alerts</div></a>
+<a href="/extension"><div>Browser Extension</div></a>
+
+</div>
+
+</div>
+
+<div class="main">
+
+{% block content %}
+
+{% endblock %}
+
+</div>
+
+</div>
+
+</body>
+</html>

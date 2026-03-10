@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+
+.dashboard{
+display:flex;
+gap:40px;
+justify-content:center;
+align-items:flex-start;
+margin-top:80px;
+flex-wrap:wrap;
+}
+
+.card{
+
+background:rgba(18,26,77,.85);
+
+padding:25px;
+
+border-radius:12px;
+
+width:300px;
+
+box-shadow:0 0 25px rgba(0,0,0,.6);
+
+transition:.3s;
+
+}
+
+.card:hover{
+
+transform:translateY(-6px) scale(1.03);
+
+box-shadow:0 0 35px rgba(90,120,255,.6);
+
+}
+
+.card h3{
+
+color:#7aa3ff;
+
+margin-top:0;
+
+}
+
+/* ALERTS */
+
+.alert{
+
+margin:8px 0;
+padding:8px;
+background:#1f2a6b;
+border-radius:5px;
+
+}
+
+/* MAP */
+
+#map{
+
+height:220px;
+border-radius:10px;
+
+}
+
+.counter{
+
+font-size:28px;
+color:#7aa3ff;
+font-weight:bold;
+
+}
+
+</style>
+
+
+<div class="dashboard">
+
+<!-- Threat Stats -->
+
+<div class="card">
+
+<h3>Threat Statistics</h3>
+
+<p>Total Scams Detected:</p>
+
+<div class="counter" id="counter">0</div>
+
+<p>Most Common Scam: <b>UPI Fraud</b></p>
+
+</div>
+
+
+<!-- Recent Alerts -->
+
+<div class="card">
+
+<h3>Recent Alerts</h3>
+
+<div id="alerts">
+
+<div class="alert">Fake bank login detected</div>
+
+<div class="alert">UPI payment phishing</div>
+
+<div class="alert">OTP scam reported</div>
+
+</div>
+
+</div>
+
+
+<!-- Map -->
+
+<div class="card">
+
+<h3>Scam Activity Map</h3>
+
+<div id="map"></div>
+
+</div>
+
+</div>
+
+
+<!-- MAP SCRIPT -->
+
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+/>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+<script>
+
+let map = L.map('map').setView([20.5937,78.9629],4)
+
+L.tileLayer(
+'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+).addTo(map)
+
+function addAttack(){
+
+let lat = 8 + Math.random()*20
+let lon = 68 + Math.random()*25
+
+L.circleMarker([lat,lon],{
+
+radius:6,
+color:"red"
+
+}).addTo(map)
+
+}
+
+setInterval(addAttack,2000)
+
+</script>
+
+
+<!-- COUNTER SCRIPT -->
+
+<script>
+
+let count = 0
+
+function updateCounter(){
+
+count++
+
+document.getElementById("counter").innerText = count
+
+}
+
+setInterval(updateCounter,1500)
+
+</script>
+
+
+{% endblock %}

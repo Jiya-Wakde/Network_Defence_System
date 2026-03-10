@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+
+/* CENTER CARD */
+
+.scan-container{
+display:flex;
+justify-content:center;
+align-items:center;
+height:80vh;
+}
+
+.scan-box{
+
+background:#141f4d;
+width:650px;
+padding:50px;
+border-radius:16px;
+text-align:center;
+
+box-shadow:0 0 40px rgba(0,0,0,.7);
+transition:.3s;
+
+}
+
+.scan-box:hover{
+transform:scale(1.02);
+box-shadow:0 0 50px rgba(90,120,255,.6);
+}
+
+.scan-box h1{
+
+color:#7aa3ff;
+margin-bottom:25px;
+font-size:32px;
+
+}
+
+/* TEXTAREA */
+
+textarea{
+
+width:100%;
+height:160px;
+
+padding:15px;
+
+border-radius:10px;
+border:none;
+
+resize:none;
+
+font-size:15px;
+outline:none;
+
+background:#0f1640;
+color:white;
+
+box-shadow:inset 0 0 10px rgba(0,0,0,.6);
+
+}
+
+/* BUTTON */
+
+button{
+
+margin-top:25px;
+
+padding:14px 30px;
+
+font-size:16px;
+
+background:linear-gradient(90deg,#356cff,#5c8dff);
+
+border:none;
+border-radius:8px;
+
+color:white;
+
+cursor:pointer;
+
+transition:.3s;
+
+}
+
+button:hover{
+
+transform:scale(1.05);
+
+background:linear-gradient(90deg,#2347c5,#356cff);
+
+}
+
+/* RESULT */
+
+.result{
+
+margin-top:25px;
+font-size:18px;
+
+}
+
+.safe{
+color:#4cff8f;
+}
+
+.danger{
+color:#ff4c4c;
+}
+
+</style>
+
+
+<div class="scan-container">
+
+<div class="scan-box">
+
+<h1>🔎 Scan Suspicious Message</h1>
+
+<form method="POST">
+
+<textarea name="url" placeholder="Paste suspicious message, link, or email here..."></textarea>
+
+<br>
+
+<button type="submit">Scan Now</button>
+
+</form>
+
+
+{% if result %}
+
+<div class="result">
+
+<p><b>URL:</b> {{ result.url }}</p>
+
+<p><b>Risk Score:</b> {{ result.risk_score }}%</p>
+
+<p><b>Confidence:</b> {{ result.confidence }}</p>
+
+{% if result.status == "Phishing" %}
+
+<p class="danger">⚠ PHISHING DETECTED</p>
+
+{% else %}
+
+<p class="safe">✅ SAFE WEBSITE</p>
+
+{% endif %}
+
+</div>
+
+{% endif %}
+
+</div>
+
+</div>
+
+{% endblock %}
