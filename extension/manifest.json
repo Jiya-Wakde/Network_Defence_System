@@ -1,27 +1,27 @@
 {
-"manifest_version":3,
-"name":"SentinelAI Scam Shield",
-"version":"1.0",
+  "manifest_version": 3,
+  "name": "SentinelAI Phishing Detector",
+  "version": "1.0",
+  "description": "Detect phishing websites using AI",
 
-"permissions":[
-"tabs"
-],
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
 
-"host_permissions":[
-"<all_urls>",
-"http://127.0.0.1:5000/*"
-],
+  "host_permissions": [
+    "http://127.0.0.1:5000/*"
+  ],
 
-"background":{
-"service_worker":"background.js"
-},
+  "background": {
+    "service_worker": "background.js"
+  },
 
-"content_scripts":[
-{
-"matches":["<all_urls>"],
-"js":["content.js"],
-"css":["style.css"],
-"run_at":"document_start"
-}
-]
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

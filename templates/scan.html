@@ -135,19 +135,21 @@ color:#ff4c4c;
 
 <div class="result">
 
-<p><b>URL:</b> {{ result.url }}</p>
+<p><b>Type:</b> {{ result.type }}</p>
+
+<p><b>Input:</b> {{ result.input }}</p>
 
 <p><b>Risk Score:</b> {{ result.risk_score }}%</p>
 
 <p><b>Confidence:</b> {{ result.confidence }}</p>
 
-{% if result.status == "Phishing" %}
+{% if result.status == "Phishing" or result.status == "Spam" %}
 
-<p class="danger">⚠ PHISHING DETECTED</p>
+<p class="danger">⚠ {{ result.status }} DETECTED</p>
 
 {% else %}
 
-<p class="safe">✅ SAFE WEBSITE</p>
+<p class="safe">✅ SAFE</p>
 
 {% endif %}
 
